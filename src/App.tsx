@@ -10,11 +10,14 @@ const STAT_COLORS: Record<EquipmentStatus, string> = {
 };
 
 const SYM_HALF_H: Record<string, number> = {
-  CircuitBreaker: 12, Transformer: 18, GridConnection: 12,
-  MainPowerSupply: 12, Generator: 14, UPS: 18, Rack: 12,
+  CircuitBreaker: 12, Transformer: 18, UPS: 18, Rack: 12,
   CoolingUnit: 12, Condenser: 12, Dehumidifier: 12,
   FireSystem: 12, Lighting: 12, Socket: 12, Fan: 12, ABS: 12, Spare: 12,
+  MainPowerSupply: 12, Generator: 14,
 };
+
+const S = 0.28;
+const SU = 0.25;
 
 function pos(id: string) {
   const L: Record<string, { x: number; y: number }> = {
@@ -68,6 +71,7 @@ function isActive(id: string, statuses: Record<string, EquipmentStatus>) {
   return s !== "FAULT" && s !== "OFFLINE";
 }
 
+// ── Mains supply ──
 function GndSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -77,50 +81,118 @@ function GndSym({ x, y, color }: { x: number; y: number; color: string }) {
   );
 }
 
-function TrfSym({ x, y, color }: { x: number; y: number; color: string }) {
+// ── Transformer ──
+function TrfSvg({ x, y, color }: { x: number; y: number; color: string }) {
+  const s = S;
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      <line x1={0} y1={-18} x2={0} y2={-12} stroke={color} strokeWidth={2} />
-      <circle cx={-6} cy={-6} r={5} fill="none" stroke={color} strokeWidth={1.5} />
-      <circle cx={6} cy={-6} r={5} fill="none" stroke={color} strokeWidth={1.5} />
-      <circle cx={0} cy={6} r={5} fill="none" stroke={color} strokeWidth={1.5} />
-      <line x1={0} y1={11} x2={0} y2={18} stroke={color} strokeWidth={2} />
+    <g transform={`translate(${x}, ${y}) scale(${s})`}>
+      <rect x="-50" y="-50" width="100" height="100" fill="none" stroke="none" />
+      <path d="M 0,-34 V -50" stroke={color} strokeWidth={1.8} />
+      <circle cx="0" cy="-10" r="22.5" fill="none" stroke={color} strokeWidth={1.8} />
+      <circle cx="0" cy="10" r="22.5" fill="none" stroke={color} strokeWidth={1.8} />
+      <path d="M 0,32.5 V 50" stroke={color} strokeWidth={1.8} />
+      <circle cx="0" cy="-50" r="2.5" fill={color} />
+      <circle cx="0" cy="50" r="2.5" fill={color} />
     </g>
   );
 }
 
-function CbSym({ x, y, color }: { x: number; y: number; color: string }) {
+// ── Circuit Breaker ──
+function CbSvg({ x, y, color }: { x: number; y: number; color: string }) {
+  const s = S;
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      <line x1={0} y1={-12} x2={0} y2={-6} stroke={color} strokeWidth={2} />
-      <circle cx={0} cy={0} r={6} fill="none" stroke={color} strokeWidth={2} />
-      <line x1={-4} y1={-4} x2={4} y2={4} stroke={color} strokeWidth={2} />
-      <line x1={0} y1={6} x2={0} y2={12} stroke={color} strokeWidth={2} />
+    <g transform={`translate(${x}, ${y}) scale(${s})`}>
+      <rect x="-50" y="-50" width="100" height="100" fill="none" stroke="none" />
+      <path d="M 0,-34 V -50" stroke={color} strokeWidth={1.8} />
+      <path d="M 0,43.06 V 50" stroke={color} strokeWidth={1.8} />
+      <path d="m -13.25,-9.18 13.36,16.42" stroke={color} strokeWidth={1.8} />
+      <path d="m -3.35,-15.97 6.7,6.9" stroke={color} strokeWidth={1.8} />
+      <path d="m 3.32,-16 -6.52,7.09" stroke={color} strokeWidth={1.8} />
+      <path d="M 0,-40 V -12" stroke={color} strokeWidth={1.8} />
+      <circle cx="0" cy="-50" r="2.5" fill={color} />
+      <circle cx="0" cy="50" r="2.5" fill={color} />
     </g>
   );
 }
 
-function GenSym({ x, y, color }: { x: number; y: number; color: string }) {
+// ── Generator ──
+function GenSvg({ x, y, color }: { x: number; y: number; color: string }) {
+  const s = S;
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      <circle cx={0} cy={0} r={14} fill="none" stroke={color} strokeWidth={2} />
-      <path d="M-6,-4 Q0,-10 6,-4 Q0,-6 -6,-4" fill="none" stroke={color} strokeWidth={1.5} />
-      <line x1={0} y1={14} x2={0} y2={18} stroke={color} strokeWidth={2} />
+    <g transform={`translate(${x}, ${y}) scale(${s})`}>
+      <rect x="-50" y="-50" width="100" height="100" fill="none" stroke="none" />
+      <path d="M 0,20.03 V 50" stroke={color} strokeWidth={1.8} />
+      <circle cx="0" cy="-6.39" r="26.39" fill="none" stroke={color} strokeWidth={1.8} />
+      <path d="m -15,-5 c 6.12,-9.65 12.49,-3.53 15,0 v 0 c 2,2 4.86,5 7.56,5 7.62,0 7.5,-4.94 7.5,-4.94" stroke={color} strokeWidth={1.8} fill="none" />
+      <circle cx="0" cy="50" r="2.5" fill={color} />
     </g>
   );
 }
 
-function UpsSym({ x, y, color }: { x: number; y: number; color: string }) {
+// ── UPS ──
+function UpsSvg({ x, y, color }: { x: number; y: number; color: string }) {
+  const s = SU;
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      <line x1={0} y1={-18} x2={0} y2={-14} stroke={color} strokeWidth={2} />
-      <rect x={-18} y={-14} width={36} height={28} rx={2} fill="none" stroke={color} strokeWidth={2} />
-      <text x={0} y={4} textAnchor="middle" fontSize={10} fontWeight="700" fill={color}>UPS</text>
-      <line x1={0} y1={14} x2={0} y2={18} stroke={color} strokeWidth={2} />
+    <g transform={`translate(${x}, ${y}) scale(${s})`}>
+      <rect x="-60" y="-60" width="120" height="120" fill="none" stroke="none" />
+      <path d="m -15,-53 c 7,0 7,0 7,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m -2.52,-53 c 8.52,0 8.52,0 8.52,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m -15,-45 c 8.56,0 8.56,0 8.56,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m -59.92,-49.44 c 45.97,0 45.97,0 45.97,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m 5,-49 c 45.97,0 45.97,0 45.97,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m -0.96,-45 c 6.96,0 6.96,0 6.96,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m -59.92,-24.19 c 11.74,0 11.74,0 11.74,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <path d="m 39.4,-23.82 c 20.6,0 20.6,0 20.6,0" stroke={color} strokeWidth={1.8} fill="none" />
+      <circle cx="-60" cy="-24.19" r="2.5" fill={color} />
+      <circle cx="60" cy="-23.82" r="2.5" fill={color} />
+      <circle cx="-60" cy="-49.44" r="2.5" fill={color} />
+      <g transform="translate(-10.6,-2.74)">
+        <path d="m 44.68,58.73 c 21,0 21,0 21,0" stroke={color} strokeWidth={1.8} fill="none" />
+        <path d="m 50,62.33 11,-0.03" stroke={color} strokeWidth={1.8} fill="none" />
+        <path d="m 44.79,65.88 c 21,0 21,0 21,0" stroke={color} strokeWidth={1.8} fill="none" />
+        <path d="M 55.18,35.34 V 55.16" stroke={color} strokeWidth={1.8} fill="none" />
+        <path d="m 40.96,35.84 c 28.44,0 28.44,0 28.44,0" stroke={color} strokeWidth={1.8} fill="none" />
+        <g transform="translate(19.17,2.83)">
+          <path d="m 49,3.84 v 6" stroke={color} strokeWidth={1.8} fill="none" />
+          <path d="m 51.08,3.82 -2.17,3.08" stroke={color} strokeWidth={1.8} fill="none" />
+        </g>
+        <g transform="matrix(-1,0,0,1,113.39,10.74)">
+          <path d="m 49,3.84 v 6" stroke={color} strokeWidth={1.8} fill="none" />
+          <path d="m 51.08,3.82 -2.17,3.08" stroke={color} strokeWidth={1.8} fill="none" />
+        </g>
+        <rect x="-39.28" y="-12.69" width="30" height="17.83" fill="none" stroke={color} strokeWidth={1.8} transform="rotate(180,21,4.95)" />
+        <g transform="translate(-16.13,9.58)">
+          <path d="m 40.41,25.32 c 2.06,-3.25 4.2,-1.19 5.05,0 0.07,0.67 1.03,1.68 1.94,1.68 2.56,0 2.52,-1.66 2.52,-1.66" stroke={color} strokeWidth={1.8} fill="none" />
+          <rect x="38" y="20" width="30" height="17.83" fill="none" stroke={color} strokeWidth={1.8} />
+          <path d="M 38,38 C 68,20 68,20 68,20" stroke={color} strokeWidth={1.8} fill="none" />
+          <g>
+            <path d="m 55,32 c 10,0 10,0 10,0" stroke={color} strokeWidth={1.8} fill="none" />
+            <path d="m 55,33.5 c 2,0 2,0 2,0" stroke={color} strokeWidth={1.8} fill="none" />
+            <path d="m 63,33.5 c 2,0 2,0 2,0" stroke={color} strokeWidth={1.8} fill="none" />
+            <path d="m 59,33.5 c 2,0 2,0 2,0" stroke={color} strokeWidth={1.8} fill="none" />
+          </g>
+        </g>
+        <path d="m 50,6.5 v 9" stroke={color} strokeWidth={1.8} fill="none" />
+        <path d="m 66.1,6.5 v 9" stroke={color} strokeWidth={1.8} fill="none" />
+        <path d="M 111.09,10.5 V 36.68" stroke={color} strokeWidth={1.8} fill="none" />
+        <g transform="translate(42,9.9)">
+          <path d="m 65.59,32.61 c -2.06,3.25 -4.2,1.19 -5.05,0 -0.07,-0.67 -1.03,-1.68 -1.94,-1.68 -2.56,0 -2.52,1.66 -2.52,1.66" stroke={color} strokeWidth={1.8} fill="none" />
+          <rect x="-68" y="-37.93" width="30" height="17.83" fill="none" stroke={color} strokeWidth={1.8} transform="scale(-1)" />
+          <rect x="-38.78" y="-65.82" width="30" height="17.83" fill="none" stroke={color} strokeWidth={1.8} transform="scale(-1)" />
+          <path d="m 68,19.93 c -30,18 -30,18 -30,18" stroke={color} strokeWidth={1.8} fill="none" />
+          <g transform="matrix(-1,0,0,1,106,-7.29)">
+            <path d="m 55,32 c 10,0 10,0 10,0" stroke={color} strokeWidth={1.8} fill="none" />
+            <path d="m 55,33.5 c 2,0 2,0 2,0" stroke={color} strokeWidth={1.8} fill="none" />
+            <path d="m 63,33.5 c 2,0 2,0 2,0" stroke={color} strokeWidth={1.8} fill="none" />
+            <path d="m 59,33.5 c 2,0 2,0 2,0" stroke={color} strokeWidth={1.8} fill="none" />
+          </g>
+        </g>
+      </g>
     </g>
   );
 }
 
+// ── Load (circle) ──
 function LoadSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -130,6 +202,7 @@ function LoadSym({ x, y, color }: { x: number; y: number; color: string }) {
   );
 }
 
+// ── Rack ──
 function RackSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -142,9 +215,7 @@ function RackSym({ x, y, color }: { x: number; y: number; color: string }) {
 }
 
 function HitArea({ x, y, onClick }: { x: number; y: number; onClick: () => void }) {
-  return (
-    <circle cx={x} cy={y} r={18} fill="transparent" style={{ cursor: "pointer" }} onClick={onClick} />
-  );
+  return <circle cx={x} cy={y} r={18} fill="transparent" style={{ cursor: "pointer" }} onClick={onClick} />;
 }
 
 function EqSymbol({ eq, status, selected, onClick }: {
@@ -159,13 +230,13 @@ function EqSymbol({ eq, status, selected, onClick }: {
       case "MainPowerSupply":
         return <GndSym x={p.x} y={p.y} color={color} />;
       case "Transformer":
-        return <TrfSym x={p.x} y={p.y} color={color} />;
+        return <TrfSvg x={p.x} y={p.y} color={color} />;
       case "CircuitBreaker":
-        return <CbSym x={p.x} y={p.y} color={color} />;
+        return <CbSvg x={p.x} y={p.y} color={color} />;
       case "Generator":
-        return <GenSym x={p.x} y={p.y} color={color} />;
+        return <GenSvg x={p.x} y={p.y} color={color} />;
       case "UPS":
-        return <UpsSym x={p.x} y={p.y} color={color} />;
+        return <UpsSvg x={p.x} y={p.y} color={color} />;
       case "Rack":
         return <RackSym x={p.x} y={p.y} color={color} />;
       default:
