@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Equipment, { EdgeList, EquipmentStatus } from "./equipmentData";
 
 const STAT_COLORS: Record<EquipmentStatus, string> = {
@@ -58,12 +58,21 @@ function pos(id: string) {
   return L[id] ?? { x: 0, y: 0 };
 }
 
-function GndSym({ x, y, color, label }: { x: number; y: number; color: string; label?: string }) {
+const ACTIVE_TYPES = new Set(["Busbar", "Busway"]);
+
+function isActive(id: string, statuses: Record<string, EquipmentStatus>) {
+  const eq = Equipment.find(e => e.id === id);
+  if (!eq) return false;
+  if (ACTIVE_TYPES.has(eq.equipmentType)) return true;
+  const s = statuses[id] ?? eq.status;
+  return s !== "FAULT" && s !== "OFFLINE";
+}
+
+function GndSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <line x1={-80} y1={-9} x2={80} y2={-9} stroke={color} strokeWidth={7} strokeLinecap="round" />
       <line x1={0} y1={-9} x2={0} y2={12} stroke={color} strokeWidth={2} />
-      {label && <text x={0} y={-14} textAnchor="middle" fontSize={8} fontWeight="600" fill={color}>{label}</text>}
     </g>
   );
 }
@@ -80,19 +89,18 @@ function TrfSym({ x, y, color }: { x: number; y: number; color: string }) {
   );
 }
 
-function CbSym({ x, y, color, label }: { x: number; y: number; color: string; label?: string }) {
+function CbSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <line x1={0} y1={-12} x2={0} y2={-6} stroke={color} strokeWidth={2} />
       <circle cx={0} cy={0} r={6} fill="none" stroke={color} strokeWidth={2} />
       <line x1={-4} y1={-4} x2={4} y2={4} stroke={color} strokeWidth={2} />
       <line x1={0} y1={6} x2={0} y2={12} stroke={color} strokeWidth={2} />
-      {label && <text x={16} y={3} fontSize={7} fontWeight="600" fill={color}>{label}</text>}
     </g>
   );
 }
 
-function GenSymbol({ x, y, color }: { x: number; y: number; color: string }) {
+function GenSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <circle cx={0} cy={0} r={14} fill="none" stroke={color} strokeWidth={2} />
@@ -102,27 +110,22 @@ function GenSymbol({ x, y, color }: { x: number; y: number; color: string }) {
   );
 }
 
-function UpsSymbol({ x, y, color }: { x: number; y: number; color: string }) {
+function UpsSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <line x1={0} y1={-18} x2={0} y2={-14} stroke={color} strokeWidth={2} />
       <rect x={-18} y={-14} width={36} height={28} rx={2} fill="none" stroke={color} strokeWidth={2} />
-      <text x={0} y={4} textAnchor="middle" fontSize={9} fontWeight="700" fill={color}>UPS</text>
+      <text x={0} y={4} textAnchor="middle" fontSize={10} fontWeight="700" fill={color}>UPS</text>
       <line x1={0} y1={14} x2={0} y2={18} stroke={color} strokeWidth={2} />
     </g>
   );
 }
 
-function LoadSym({ x, y, color, label }: { x: number; y: number; color: string; label?: string }) {
+function LoadSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <line x1={0} y1={-12} x2={0} y2={-7} stroke={color} strokeWidth={2} />
-      <circle cx={0} cy={3} r={10} fill="none" stroke={color} strokeWidth={2} />
-      {label && (
-        <text x={0} y={6} textAnchor="middle" fontSize={5.5} fontWeight="600" fill={color}>
-          {label}
-        </text>
-      )}
+      <circle cx={0} cy={0} r={10} fill="none" stroke={color} strokeWidth={2} />
     </g>
   );
 }
@@ -131,10 +134,16 @@ function RackSym({ x, y, color }: { x: number; y: number; color: string }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
       <line x1={0} y1={-12} x2={0} y2={-7} stroke={color} strokeWidth={2} />
-      <circle cx={0} cy={3} r={10} fill="none" stroke={color} strokeWidth={2} />
-      <line x1={-5} y1={0} x2={5} y2={0} stroke={color} strokeWidth={1.5} />
-      <line x1={-5} y1={4} x2={5} y2={4} stroke={color} strokeWidth={1.5} />
+      <circle cx={0} cy={0} r={10} fill="none" stroke={color} strokeWidth={2} />
+      <line x1={-5} y1={-3} x2={5} y2={-3} stroke={color} strokeWidth={1.5} />
+      <line x1={-5} y1={2} x2={5} y2={2} stroke={color} strokeWidth={1.5} />
     </g>
+  );
+}
+
+function HitArea({ x, y, onClick }: { x: number; y: number; onClick: () => void }) {
+  return (
+    <circle cx={x} cy={y} r={18} fill="transparent" style={{ cursor: "pointer" }} onClick={onClick} />
   );
 }
 
@@ -144,51 +153,62 @@ function EqSymbol({ eq, status, selected, onClick }: {
 }) {
   const p = pos(eq.id);
   const color = STAT_COLORS[status];
-  const cls = "cursor-pointer hover:opacity-80";
 
   const inner = (() => {
     switch (eq.equipmentType) {
       case "MainPowerSupply":
-        return <GndSym x={p.x} y={p.y} color={color} label={eq.name} />;
+        return <GndSym x={p.x} y={p.y} color={color} />;
       case "Transformer":
         return <TrfSym x={p.x} y={p.y} color={color} />;
       case "CircuitBreaker":
-        return <CbSym x={p.x} y={p.y} color={color} label={eq.name} />;
+        return <CbSym x={p.x} y={p.y} color={color} />;
       case "Generator":
-        return <GenSymbol x={p.x} y={p.y} color={color} />;
+        return <GenSym x={p.x} y={p.y} color={color} />;
       case "UPS":
-        return <UpsSymbol x={p.x} y={p.y} color={color} />;
+        return <UpsSym x={p.x} y={p.y} color={color} />;
       case "Rack":
         return <RackSym x={p.x} y={p.y} color={color} />;
       default:
-        return <LoadSym x={p.x} y={p.y} color={color} label={eq.name} />;
+        return <LoadSym x={p.x} y={p.y} color={color} />;
     }
   })();
 
-  return <g className={cls} onClick={onClick}>{inner}</g>;
+  return (
+    <g>
+      {selected && (
+        <circle cx={p.x} cy={p.y} r={22} fill="none" stroke="#ff682c" strokeWidth={2} strokeDasharray="4 3" opacity={0.7} />
+      )}
+      <HitArea x={p.x} y={p.y} onClick={onClick} />
+      {inner}
+      <text x={p.x} y={p.y + 24} textAnchor="middle" fontSize={7} fill="#4d4d4d" fontWeight="600" fontFamily="system-ui">
+        {eq.name}
+      </text>
+    </g>
+  );
 }
 
 function BusBarLine({ x1, x2, y, label, sw }: { x1: number; x2: number; y: number; label: string; sw: number }) {
   return (
     <g>
       <line x1={x1} y1={y} x2={x2} y2={y} stroke="#475569" strokeWidth={sw} strokeLinecap="round" />
-      <text x={(x1 + x2) / 2} y={y - 8} textAnchor="middle" fontSize={7} fontWeight="700" fill="#475569" fontFamily="monospace">
+      <rect x={x1} y={y - 3} width={x2 - x1} height={6} fill="transparent" />
+      <text x={(x1 + x2) / 2} y={y - 8} textAnchor="middle" fontSize={8} fontWeight="700" fill="#475569" fontFamily="system-ui">
         {label}
       </text>
     </g>
   );
 }
 
-function getBusSpan(busId: string) {
+function getBusSpan(busId: string, activeIds: Set<string>) {
   const connected = EdgeList
-    .filter(e => e.source === busId || e.target === busId)
+    .filter(e => (e.source === busId || e.target === busId) && activeIds.has(e.source) && activeIds.has(e.target))
     .flatMap(e => [e.source === busId ? e.target : e.source]);
   if (!connected.length) return { min: 0, max: 0 };
   const xs = connected.map(id => pos(id).x);
   return { min: Math.min(...xs) - 30, max: Math.max(...xs) + 30 };
 }
 
-function EdgeLine({ edge, statusColor }: { edge: typeof EdgeList[number]; statusColor?: string }) {
+function EdgeLine({ edge, color }: { edge: typeof EdgeList[number]; color: string }) {
   const src = pos(edge.source), tgt = pos(edge.target);
   const srcEq = Equipment.find(e => e.id === edge.source);
   const tgtEq = Equipment.find(e => e.id === edge.target);
@@ -220,88 +240,69 @@ function EdgeLine({ edge, statusColor }: { edge: typeof EdgeList[number]; status
     }
   }
 
-  return <path d={pathD} fill="none" stroke={statusColor ?? "#94a3b8"} strokeWidth={1.5} />;
+  return <path d={pathD} fill="none" stroke={color} strokeWidth={1.5} />;
 }
+
+const STATUS_LIST: EquipmentStatus[] = ["ONLINE", "STANDBY", "ALARM", "FAULT", "OFFLINE"];
 
 export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const statuses = useMemo(() => {
-    const s: Record<string, EquipmentStatus> = {};
-    Equipment.forEach(e => s[e.id] = e.status);
-    const bySrc = new Map<string, string[]>();
-    EdgeList.forEach(e => {
-      const l = bySrc.get(e.source) ?? [];
-      l.push(e.target);
-      bySrc.set(e.source, l);
-    });
-    const live = new Set<string>();
-    const q = ["mains"];
-    if (s.gen1 === "ONLINE") q.push("gen1");
-    if (s.gen2 === "ONLINE") q.push("gen2");
-    q.forEach(id => live.add(id));
-    for (let i = 0; i < q.length; i++) {
-      const cur = q[i];
-      if (s[cur] === "FAULT" || s[cur] === "OFFLINE") continue;
-      (bySrc.get(cur) ?? []).forEach(n => {
-        if (!live.has(n)) { live.add(n); q.push(n); }
-      });
-    }
-    Equipment.forEach(e => {
-      if (!live.has(e.id) && s[e.id] !== "FAULT" && s[e.id] !== "ALARM") s[e.id] = "OFFLINE";
-    });
-    return s;
-  }, []);
+  const statuses: Record<string, EquipmentStatus> = {};
+  Equipment.forEach(e => statuses[e.id] = e.status);
 
-  const bmS = useMemo(() => getBusSpan("bus-main"), []);
-  const ibS = useMemo(() => getBusSpan("it-bus1"), []);
-  const bwS = useMemo(() => getBusSpan("busway"), []);
+  const activeIds = new Set(Equipment.filter(e => isActive(e.id, statuses)).map(e => e.id));
+  const busIds = new Set(["bus-main", "it-bus1", "busway"]);
+  busIds.forEach(id => activeIds.add(id));
+
+  const visibleEquipment = Equipment.filter(e => activeIds.has(e.id));
+  const visibleEdges = EdgeList.filter(e => activeIds.has(e.source) && activeIds.has(e.target));
+  const visibleEqSet = new Set(visibleEquipment.map(e => e.id));
+
+  const bmS = getBusSpan("bus-main", visibleEqSet);
+  const ibS = getBusSpan("it-bus1", visibleEqSet);
+  const bwS = getBusSpan("busway", visibleEqSet);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", overflow: "auto", background: "#fafafa", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#fff", borderBottom: "1px solid #e0e0e0", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-        <strong style={{ fontSize: 18, color: "#202020" }}>Interactive SLD</strong>
-        <span style={{ fontSize: 13, color: "#828282" }}>— click any device to inspect</span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          {selectedId && <span style={{ fontSize: 13, color: "#4d4d4d" }}>Selected: <strong>{selectedId}</strong></span>}
+    <div style={{ width: "100vw", height: "100vh", overflow: "auto", background: "#f0f2f5", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #d0d5dd", padding: "10px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+        <strong style={{ fontSize: 18, color: "#1a1a1a" }}>Electrical Safety Training — SLD</strong>
+        <span style={{ fontSize: 13, color: "#667085" }}>click any device to highlight</span>
+        {selectedId && (
+          <span style={{ marginLeft: "auto", fontSize: 13, color: "#1a1a1a" }}>
+            Selected: <strong>{Equipment.find(e => e.id === selectedId)?.name ?? selectedId}</strong>
+          </span>
+        )}
+        <div style={{ marginLeft: selectedId ? 0 : "auto", display: "flex", gap: 12, alignItems: "center" }}>
+          {STATUS_LIST.map(s => (
+            <span key={s} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#667085" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: STAT_COLORS[s], display: "inline-block" }} />
+              {s}
+            </span>
+          ))}
         </div>
       </div>
-      <div style={{ padding: 16, position: "relative" }}>
-        <svg viewBox="0 0 1300 680" width={1300} height={680} style={{ display: "block" }}>
+      <div style={{ padding: 20, display: "flex", justifyContent: "center" }}>
+        <svg viewBox="0 0 1300 680" width={1300} height={680} style={{ display: "block", background: "#fff", borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
           <BusBarLine x1={bmS.min} x2={bmS.max} y={180} label="MAIN BUS 400A" sw={3.5} />
           <BusBarLine x1={ibS.min} x2={ibS.max} y={440} label="IT BUS-1" sw={3} />
           <BusBarLine x1={bwS.min} x2={bwS.max} y={500} label="160A Busway" sw={2.5} />
 
-          {EdgeList.map(e => {
-            const s = statuses[e.source];
-            const t = statuses[e.target];
-            const live = s !== "FAULT" && s !== "OFFLINE" && t !== "FAULT" && t !== "OFFLINE";
-            return <EdgeLine key={e.id} edge={e} statusColor={live ? "#1e293b" : "#d4d4d4"} />;
-          })}
+          {visibleEdges.map(e => (
+            <EdgeLine key={e.id} edge={e} color="#94a3b8" />
+          ))}
 
-          {Equipment.map(eq => {
+          {visibleEquipment.map(eq => {
             const status = statuses[eq.id] ?? eq.status;
             const selected = eq.id === selectedId;
             return (
-              <g key={eq.id}>
-                {selected && (
-                  <circle cx={pos(eq.id).x} cy={pos(eq.id).y} r={22} fill="none" stroke="#ff682c" strokeWidth={2} strokeDasharray="4 3" opacity={0.7} />
-                )}
-                <EqSymbol eq={eq} status={status} selected={selected} onClick={() => setSelectedId(eq.id)} />
-              </g>
-            );
-          })}
-
-          {Equipment.map(eq => {
-            const p = pos(eq.id);
-            const status = statuses[eq.id] ?? eq.status;
-            const color = STAT_COLORS[status];
-            const isBus = ["bus-main", "it-bus1", "busway"].includes(eq.id);
-            if (isBus) return null;
-            return (
-              <text key={`l-${eq.id}`} x={p.x + 16} y={p.y + 3} fontSize={6.5} fill={color} fontWeight="600" fontFamily="monospace">
-                {status === "ONLINE" ? "" : status}
-              </text>
+              <EqSymbol
+                key={eq.id}
+                eq={eq}
+                status={status}
+                selected={selected}
+                onClick={() => setSelectedId(eq.id === selectedId ? null : eq.id)}
+              />
             );
           })}
         </svg>
